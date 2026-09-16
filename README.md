@@ -42,10 +42,10 @@ The DUT is a **4096-point FFT processor** built as a 12-stage pipelined SDF (Sin
 
 ### I/O Interface
 
-`
+```text
 Inputs  : clk, rst_n, valid_in, in_r [11:0], in_i [11:0]
 Outputs : valid_out, frame_done, out_r [11:0], out_i [11:0], out_index [11:0]
-`
+```
 
 - **valid_in** — activates the pipeline; can be de-asserted between frames
 - **valid_out** — asserted during the 4096 output samples of a frame
@@ -60,9 +60,9 @@ Outputs : valid_out, frame_done, out_r [11:0], out_i [11:0], out_index [11:0]
 
 Each of the 12 stages (fft_sdf_stg) implements a **Single-path Delay Feedback butterfly**. Data flows through them in series, with each stage operating on progressively smaller FIFO buffers:
 
-`
+```text
 Stage 1 -> FIFO=2048 -> Stage 2 -> FIFO=1024 -> ... -> Stage 12 -> FIFO=1
-`
+```
 
 ### Stage FSM — 4 States
 
@@ -79,11 +79,11 @@ Every stage is controlled by an independent **Moore FSM** (fft_stg_fsm) with fou
 
 The fraction length is carefully tracked through all 12 stages (verified against MATLAB fft_types.m):
 
-`
+```text
 Input(Q1.11) -> Stg1(Q2.9) -> Stg2(Q4.8) -> Stg3(Q4.8) -> Stg4(Q5.7)
 Stg5(Q6.6)  -> Stg6(Q6.6) -> Stg7(Q7.5) -> Stg8(Q7.5) -> Stg9(Q8.4)
 Stg10(Q8.4) -> Stg11(Q9.3) -> Stg12(Q9.3)
-`
+```
 
 **Convergent rounding** (round-half-to-even) is applied at every stage to prevent systematic bias accumulation.
 
@@ -93,7 +93,7 @@ Stg10(Q8.4) -> Stg11(Q9.3) -> Stg12(Q9.3)
 
 The environment is built following the **full UVM methodology** with a clean, layered architecture:
 
-`
+```text
 +------------------------------------------------------------+
 |                         FFT_test                           |
 |  +------------------------------------------------------+  |
@@ -103,7 +103,7 @@ The environment is built following the **full UVM methodology** with a clean, la
 |  |  | FFT_agent |   | Predictor  |  |  Scoreboard |    |  |
 |  |  | +-------+ |   |            |  |             |    |  |
 |  |  | | Driver| |   | Reference  |  |  DUT FIFO   |    |  |
-|  |  | +-------+ |-->|   Model   |-->|  REF FIFO   |    |  |
+|  |  | +-------+ |-->|   Model    |->|  REF FIFO   |    |  |
 |  |  | |Monitor| |   |            |  |   Compare   |    |  |
 |  |  | +-------+ |   +------------+  +-------------+    |  |
 |  |  +-----------+          |                            |  |
@@ -112,7 +112,7 @@ The environment is built following the **full UVM methodology** with a clean, la
 |  |                                   +-------------+    |  |
 |  +------------------------------------------------------+  |
 +------------------------------------------------------------+
-`
+```
 
 ### Component Breakdown
 
@@ -176,7 +176,7 @@ The virtual sequence exercises the DUT through the following ordered plan:
 
 The bug lives in **fft_stg_fsm.v** in the DRAIN_S next-state transition:
 
-`erilog
+```verilog
 // BUGGY CODE (current)
 DRAIN_S: begin
     if (count_done) begin
@@ -186,7 +186,7 @@ DRAIN_S: begin
             next_state = IDLE_S;
     end
 end
-`
+```
 
 When a small inter-frame gap (fewer than N/2 cycles) ends **exactly at the same clock edge** that count_done fires in DRAIN_S, valid_in is already re-asserted. The FSM shortcuts directly to BF_S, completely skipping FILL_S.
 
@@ -209,11 +209,11 @@ This produces **corrupted output data** for the second frame, while no assertion
 
 ### Fix Hint
 
-`erilog
+```verilog
 // CORRECT
 if (valid_in)
     next_state = FILL_S;   // always refill FIFO before butterfly
-`
+```
 
 ---
 
@@ -221,7 +221,7 @@ if (valid_in)
 
 The FFT_coverage component collects functional coverage across:
 
-`systemverilog
+```systemverilog
 covergroup cover_group;
   cp_rst_n        : coverpoint rst_n    { bins active, inactive }
   cp_valid_in     : coverpoint valid_in { bins inactive, active,
@@ -236,7 +236,7 @@ covergroup cover_group;
   cross_valid_out_index      : cross cp_valid_out, cp_out_index
   cross_valid_out_frame_done : cross cp_valid_out, cp_frame_done
 endgroup
-`
+```
 
 Coverage results are saved to FFT_uvm.ucdb and reported to Code_Coverage_Report.txt.
 
@@ -258,7 +258,7 @@ Five SVA properties are bound to the DUT via FFT_bind.sv:
 
 ## 📁 Project Structure
 
-`
+```text
 FFT_uvm/
 ├── rtl/
 │   ├── fft_4096_dif.v                Top-level 12-stage FFT
@@ -321,7 +321,7 @@ FFT_uvm/
 │
 └── doc/
     └── FFT_uvm.pdf
-`
+```
 
 ---
 
@@ -334,10 +334,10 @@ FFT_uvm/
 
 ### Simulation
 
-`	cl
+```tcl
 # From the test/ directory
 vsim -do run.do
-`
+```
 
 The script automatically:
 1. Creates and maps the work library
